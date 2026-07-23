@@ -1,0 +1,27 @@
+name: Diplomacia Otomatik Bot
+
+on:
+  schedule:
+    # Her 15 dakikada bir çalışır (UTC saatine göre). GitHub Actions'ta zamanlama
+    # birkaç dakika gecikebilir, bu normaldir.
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}  # Actions sekmesinden elle "Run workflow" ile de tetikleyebilirsin
+
+jobs:
+  calistir:
+    runs-on: ubuntu-latest
+    # Playwright'ın hazır Docker imajı: tarayıcılar önceden kurulu, kurulum süresini kısaltır.
+    container:
+      image: mcr.microsoft.com/playwright:v1.47.0-jammy
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Bağımlılıkları kur
+        run: npm install
+
+      - name: Botu çalıştır
+        env:
+          DIPLOMACIA_STORAGE: ${{ secrets.DIPLOMACIA_STORAGE }}
+          DIPLOMACIA_COOKIES: ${{ secrets.DIPLOMACIA_COOKIES }}
+        run: node bot.js
