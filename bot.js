@@ -35,11 +35,9 @@ function zamanDurumunuYukleVeyaOlustur() {
 }
 
 function botAktifMi() {
-  const durum = zamanDurumunuYukleVeyaOlustur();
-  const baslangic = new Date(durum.cevrimBaslangici).getTime();
-  const cevrimMs = AKTIF_SURE_MS + PASIF_SURE_MS;
-  const gecenMs = ((Date.now() - baslangic) % cevrimMs + cevrimMs) % cevrimMs;
-  return gecenMs < AKTIF_SURE_MS;
+  // 3s/1s programı kapatıldı — cron-job.org zaten 15 dakikada bir güvenilir şekilde
+  // tetiklediği için ayrıca bir aktif/pasif pencereye gerek yok, bot her tetiklendiğinde çalışır.
+  return true;
 }
 // ======================================================
 
