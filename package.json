@@ -1,0 +1,12 @@
+{
+  "name": "diplomacia-cloud-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Diplomacia otomatik bot - GitHub Actions bulut sürümü",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "playwright": "^1.47.0"
+  }
+}
