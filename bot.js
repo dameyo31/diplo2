@@ -257,6 +257,13 @@ async function profilSayfasiniIsle(page) {
         await bekle(1500); // DOM güncellensin (PARA/ELMAS kartları render olsun)
         paraBtn = paraButonuBul();
         rapor.teshis.paraBtnBeklemeSonrasiBulunduMu = !!paraBtn;
+
+        if (!paraBtn) {
+          // Bulunamadıysa, satırın etrafında gerçekte ne göründüğünü raporla (teşhis için)
+          let ust = satirBtn;
+          for (let i = 0; i < 4 && ust; i++) ust = ust.parentElement || ust;
+          rapor.teshis.satirCevresiMetin = ((ust.innerText || ust.textContent || '').trim()).slice(0, 400);
+        }
       }
     }
 
