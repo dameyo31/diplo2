@@ -261,8 +261,8 @@ async function profilSayfasiniIsle(page) {
         if (!paraBtn) {
           // Bulunamadıysa, satırın etrafında gerçekte ne göründüğünü raporla (teşhis için)
           let ust = satirBtn;
-          for (let i = 0; i < 4 && ust; i++) ust = ust.parentElement || ust;
-          rapor.teshis.satirCevresiMetin = ((ust.innerText || ust.textContent || '').trim()).slice(0, 400);
+          for (let i = 0; i < 15 && ust.parentElement; i++) ust = ust.parentElement;
+          rapor.teshis.satirCevresiMetin = ((ust.innerText || ust.textContent || '').trim()).slice(0, 2500);
         }
       }
     }
