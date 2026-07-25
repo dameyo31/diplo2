@@ -140,15 +140,15 @@ function sayfaIciYardimcilar() {
       if (!guvenliMi(tHam)) continue;
       if (!kelimeler.every((k) => tHam.includes(k))) continue;
       if (haric.some((h) => tHam.includes(h))) continue;
-      if (etiket && !ustSoyle(el, 8, etiket)) continue;
+      if (etiket && !ustSoyle(el, 20, etiket)) continue;
       enKucukUzunluk = tHam.length;
       enIyi = el;
     }
     return enIyi;
   }
-  function enYakinTiklanabilir(el) {
+    function enYakinTiklanabilir(el) {
     let node = el;
-    for (let i = 0; i < 8 && node; i++) {
+    for (let i = 0; i < 20 && node; i++)  {
       if (node.tagName === 'BUTTON' || node.getAttribute?.('role') === 'button' || node.getAttribute?.('tabindex') === '0') {
         return node;
       }
