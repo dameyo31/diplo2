@@ -10,11 +10,6 @@ const fs = require('fs');
 const KUYERSEL_YASAK = ['premium', 'satın al', 'satin al', 'iptal', 'ödeme', 'odeme', 'kart bilgisi', 'abonelik', 'jeton al', 'elmas al'];
 // ==============================================
 
-// ================= ÇALIŞMA PROGRAMI =================
-// 3 saat aktif, 1 saat tamamen pasif, döngü tekrar eder — BOTUN İLK ÇALIŞTIĞI ANDAN İTİBAREN
-// sayılır (sabit saat bloklarına göre değil). Bu yüzden başlangıç zamanı state.json dosyasına
-// yazılır ve workflow tarafından repoya geri commit edilir (GitHub Actions her çalıştırmada
-// hafızasını sıfırladığı için kalıcı bir yere yazmamız gerekiyor).
 const AKTIF_SURE_MS = 3 * 60 * 60 * 1000;
 const PASIF_SURE_MS = 1 * 60 * 60 * 1000;
 const STATE_PATH = 'state.json';
@@ -46,8 +41,6 @@ function log(...a) {
 }
 
 // Kullanıcının tarayıcısından dışa aktarılan çerezleri Playwright'ın beklediği formata çevirir.
-// Cookie-Editor, DevTools ve benzer araçların farklı alan adlarını (expirationDate/expires,
-// sameSite değerleri) tolere eder.
 function playwrightCerezlerineCevir(raw) {
   const sameSiteMap = { no_restriction: 'None', unspecified: 'Lax', lax: 'Lax', strict: 'Strict', none: 'None' };
   return raw.map((c) => {
@@ -75,7 +68,6 @@ function playwrightCerezlerineCevir(raw) {
 }
 
 // ---- Aşağıdaki fonksiyonlar sayfa (tarayıcı) içinde çalışır: page.evaluate() ile enjekte edilir ----
-// Tampermonkey script'indeki mantığın birebir aynısı.
 function sayfaIciYardimcilar() {
   const norm = (s) =>
     (s || '')
@@ -142,7 +134,9 @@ function sayfaIciYardimcilar() {
       if (!gorunur(el)) continue;
       const tHam = norm(el.innerText || el.textContent);
       if (!tHam) continue;
-      if (tHam.length >= enKucukUzunluk) continue;
+      // Eşit uzunlukta eşleşmelerde (tek çocuklu iç içe sarmalayıcılar aynı metni taşıdığında)
+      // SONRA gelen (yani daha derinde/spesifik olan) elemanı tercih et — > kullanıyoruz, >= değil.
+      if (tHam.length > enKucukUzunluk) continue;
       if (!guvenliMi(tHam)) continue;
       if (!kelimeler.every((k) => tHam.includes(k))) continue;
       if (haric.some((h) => tHam.includes(h))) continue;
@@ -204,22 +198,14 @@ async function calisSayfasiniIsle(page) {
     const h = window.__diplo;
     const rapor = { calisTiklandi: false, odulKapatildi: false, teshis: {} };
 
-    const calisBtn = h.tamEslesenButon('çalış');
+    const calisMetinEl = h.enKucukMetinEslesmesi(['çalış'], ['otomatik', 'premium'], '');
+    const calisBtn = calisMetinEl ? h.enYakinTiklanabilir(calisMetinEl) : null;
     rapor.teshis.calisBtnBulundu = !!calisBtn;
     if (calisBtn) {
-      rapor.teshis.calisBtnMetin = (calisBtn.innerText || calisBtn.textContent || '').trim();
+      rapor.teshis.calisBtnMetin = (calisBtn.innerText || calisBtn.textContent || '').trim().slice(0, 60);
       rapor.teshis.calisBtnKapaliMi = h.kapaliMi(calisBtn);
-    }
-    // Tam eşleşme bulunamadıysa, "çalış" geçen tüm aday elemanları da raporla (teşhis için)
-    if (!calisBtn) {
-      rapor.teshis.calisGecenAdaylar = h
-        .adaylar()
-        .filter((el) => h.gorunur(el) && h.norm(el.innerText || el.textContent).includes('çaliş'))
-        .map((el) => ({
-          metin: (el.innerText || el.textContent || '').trim().slice(0, 60),
-          kapaliMi: h.kapaliMi(el),
-        }))
-        .slice(0, 5);
+    } else if (calisMetinEl) {
+      rapor.teshis.calisMetinBulunduAmaTiklanamadi = (calisMetinEl.innerText || calisMetinEl.textContent || '').trim().slice(0, 60);
     }
 
     if (calisBtn && !h.kapaliMi(calisBtn)) {
@@ -227,7 +213,8 @@ async function calisSayfasiniIsle(page) {
       rapor.calisTiklandi = true;
     }
 
-    const harikaBtn = h.tamEslesenButon('harika');
+    const harikaMetinEl = h.enKucukMetinEslesmesi(['harika'], [], '');
+    const harikaBtn = harikaMetinEl ? h.enYakinTiklanabilir(harikaMetinEl) : null;
     if (harikaBtn) {
       h.gercektenTikla(harikaBtn);
       rapor.odulKapatildi = true;
@@ -243,7 +230,7 @@ async function profilSayfasiniIsle(page) {
   // Aynı çalıştırma içinde: satır kapalıysa aç -> kısa bekle (DOM güncellensin) -> PARA'ya bas.
   return page.evaluate(async () => {
     const h = window.__diplo;
-    const rapor = { yukseltmeDevamEdiyordu: false, satirSecildi: false, paraTiklandi: false };
+    const rapor = { yukseltmeDevamEdiyordu: false, satirSecildi: false, paraTiklandi: false, teshis: {} };
     const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
 
     if (h.yukseltmeDevamMi()) {
@@ -257,17 +244,25 @@ async function profilSayfasiniIsle(page) {
     }
 
     let paraBtn = paraButonuBul();
+    rapor.teshis.paraBtnIlkDenemeBulunduMu = !!paraBtn;
 
     if (!paraBtn) {
-      // Satır kapalı olabilir, açmayı dene
       const satirMetinEl = h.enKucukMetinEslesmesi(['kışla'], ['seviyeniz', 'para', 'elmas'], '');
+      rapor.teshis.satirMetinBulunduMu = !!satirMetinEl;
       const satirBtn = satirMetinEl ? h.enYakinTiklanabilir(satirMetinEl) : null;
+      rapor.teshis.satirBtnBulunduMu = !!satirBtn;
       if (satirBtn) {
         h.gercektenTikla(satirBtn);
         rapor.satirSecildi = true;
         await bekle(1500); // DOM güncellensin (PARA/ELMAS kartları render olsun)
         paraBtn = paraButonuBul();
+        rapor.teshis.paraBtnBeklemeSonrasiBulunduMu = !!paraBtn;
       }
+    }
+
+    if (paraBtn) {
+      rapor.teshis.paraBtnMetin = (paraBtn.innerText || paraBtn.textContent || '').trim().slice(0, 60);
+      rapor.teshis.paraBtnKapaliMi = h.kapaliMi(paraBtn);
     }
 
     if (paraBtn && !h.kapaliMi(paraBtn)) {
@@ -284,10 +279,7 @@ async function run() {
     return;
   }
 
-  // Bu site oturumu COOKIE ile değil localStorage ile tutuyor (Cookie-Editor "çerez yok" gösterdi).
-  // Bu yüzden asıl kimlik doğrulama verisi DIPLOMACIA_STORAGE secret'ından (localStorage JSON'u,
-  // diplomacia.com.tr sayfasında konsola "copy(JSON.stringify(localStorage))" yazılarak alınır).
-  // DIPLOMACIA_COOKIES varsa (opsiyonel) o da ayrıca eklenir, yoksa sorun değil.
+  // Bu site oturumu COOKIE ile değil localStorage ile tutuyor.
   const storageRaw = process.env.DIPLOMACIA_STORAGE;
   if (!storageRaw) {
     console.error('HATA: DIPLOMACIA_STORAGE ortam değişkeni / secret bulunamadı.');
@@ -345,7 +337,6 @@ async function run() {
     const profilRaporu = await profilSayfasiniIsle(page);
     log('Profil sayfası sonucu:', JSON.stringify(profilRaporu));
 
-    // Giriş gerçekten geçerli mi kontrolü (basit bir ipucu): sayfa "giriş yap" gibi bir şey içeriyorsa uyar.
     const girisGecerliMi = await page.evaluate(() => {
       const t = (document.body.innerText || '').toLocaleLowerCase('tr-TR');
       return !t.includes('giriş yap') && !t.includes('oturum aç');
