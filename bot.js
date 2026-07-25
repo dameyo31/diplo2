@@ -7,7 +7,7 @@ const fs = require('fs');
 
 // ================= GÜVENLİK =================
 // Bu kelimelerden biri geçen HİÇBİR elemana asla basılmaz.
-const KUYERSEL_YASAK = ['premium', 'satın al', 'satin al', 'iptal', 'ödeme', 'odeme', 'kart bilgisi', 'abonelik', 'jeton al', 'elmas al'];
+const KUYERSEL_YASAK = ['premium üye', 'premium al', 'premium ol', 'sadece premium', 'yalnızca premium', 'satın al', 'satin al', 'iptal', 'ödeme', 'odeme', 'kart bilgisi', 'abonelik', 'jeton al', 'elmas al'];
 // ==============================================
 
 const AKTIF_SURE_MS = 3 * 60 * 60 * 1000;
