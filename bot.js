@@ -7,6 +7,9 @@ const fs = require('fs');
 
 // ================= GÜVENLİK =================
 // Bu kelimelerden biri geçen HİÇBİR elemana asla basılmaz.
+// Not: sade "premium" kelimesi yerine spesifik ifadeler kullanıyoruz — çünkü bazı yükseltme
+// kartlarının bekleme süresi metninde "-%25 premium bonusu" gibi bilgilendirme amaçlı, tehlikesiz
+// bir ibare de geçebiliyor. Gerçekten satın alma çağrısı yapan ifadeleri hedefliyoruz.
 const KUYERSEL_YASAK = ['premium üye', 'premium al', 'premium ol', 'sadece premium', 'yalnızca premium', 'satın al', 'satin al', 'iptal', 'ödeme', 'odeme', 'kart bilgisi', 'abonelik', 'jeton al', 'elmas al'];
 // ==============================================
 
@@ -41,6 +44,8 @@ function log(...a) {
 }
 
 // Kullanıcının tarayıcısından dışa aktarılan çerezleri Playwright'ın beklediği formata çevirir.
+// Cookie-Editor, DevTools ve benzer araçların farklı alan adlarını (expirationDate/expires,
+// sameSite değerleri) tolere eder.
 function playwrightCerezlerineCevir(raw) {
   const sameSiteMap = { no_restriction: 'None', unspecified: 'Lax', lax: 'Lax', strict: 'Strict', none: 'None' };
   return raw.map((c) => {
@@ -68,6 +73,7 @@ function playwrightCerezlerineCevir(raw) {
 }
 
 // ---- Aşağıdaki fonksiyonlar sayfa (tarayıcı) içinde çalışır: page.evaluate() ile enjekte edilir ----
+// Tampermonkey script'indeki mantığın birebir aynısı.
 function sayfaIciYardimcilar() {
   const norm = (s) =>
     (s || '')
@@ -146,9 +152,9 @@ function sayfaIciYardimcilar() {
     }
     return enIyi;
   }
-    function enYakinTiklanabilir(el) {
+  function enYakinTiklanabilir(el) {
     let node = el;
-    for (let i = 0; i < 20 && node; i++)  {
+    for (let i = 0; i < 20 && node; i++) {
       if (node.tagName === 'BUTTON' || node.getAttribute?.('role') === 'button' || node.getAttribute?.('tabindex') === '0') {
         return node;
       }
@@ -226,7 +232,7 @@ async function calisSayfasiniIsle(page) {
 
 async function profilSayfasiniIsle(page) {
   // Her GitHub Actions çalıştırması sıfırdan yeni bir tarayıcı açar (önceki çalıştırmadan
-  // DOM/UI durumu KALMAZ) — bu yüzden "Kışla" satırı her seferinde kapalı başlar.
+  // DOM/UI durumu KALMAZ) — bu yüzden "Savaş Teknikleri" satırı her seferinde kapalı başlar.
   // Aynı çalıştırma içinde: satır kapalıysa aç -> kısa bekle (DOM güncellensin) -> PARA'ya bas.
   return page.evaluate(async () => {
     const h = window.__diplo;
@@ -239,7 +245,7 @@ async function profilSayfasiniIsle(page) {
     }
 
     function paraButonuBul() {
-      const paraMetinEl = h.enKucukMetinEslesmesi(['para', 'seviye'], ['elmas'], 'kışla');
+      const paraMetinEl = h.enKucukMetinEslesmesi(['para', 'seviye'], ['elmas'], 'savaş teknikleri');
       return paraMetinEl ? h.enYakinTiklanabilir(paraMetinEl) : null;
     }
 
@@ -247,19 +253,18 @@ async function profilSayfasiniIsle(page) {
     rapor.teshis.paraBtnIlkDenemeBulunduMu = !!paraBtn;
 
     if (!paraBtn) {
-      const satirMetinEl = h.enKucukMetinEslesmesi(['kışla'], ['seviyeniz', 'para', 'elmas'], '');
+      const satirMetinEl = h.enKucukMetinEslesmesi(['savaş teknikleri'], ['seviyeniz', 'para', 'elmas'], '');
       rapor.teshis.satirMetinBulunduMu = !!satirMetinEl;
       const satirBtn = satirMetinEl ? h.enYakinTiklanabilir(satirMetinEl) : null;
       rapor.teshis.satirBtnBulunduMu = !!satirBtn;
       if (satirBtn) {
         h.gercektenTikla(satirBtn);
         rapor.satirSecildi = true;
-        await bekle(1500); // DOM güncellensin (PARA/ELMAS kartları render olsun)
+        await bekle(1500);
         paraBtn = paraButonuBul();
         rapor.teshis.paraBtnBeklemeSonrasiBulunduMu = !!paraBtn;
 
         if (!paraBtn) {
-          // Bulunamadıysa, satırın etrafında gerçekte ne göründüğünü raporla (teşhis için)
           let ust = satirBtn;
           for (let i = 0; i < 15 && ust.parentElement; i++) ust = ust.parentElement;
           rapor.teshis.satirCevresiMetin = ((ust.innerText || ust.textContent || '').trim()).slice(0, 2500);
@@ -286,7 +291,6 @@ async function run() {
     return;
   }
 
-  // Bu site oturumu COOKIE ile değil localStorage ile tutuyor.
   const storageRaw = process.env.DIPLOMACIA_STORAGE;
   if (!storageRaw) {
     console.error('HATA: DIPLOMACIA_STORAGE ortam değişkeni / secret bulunamadı.');
